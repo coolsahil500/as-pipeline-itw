@@ -14,7 +14,7 @@ phases:
       - echo Installing AWS CLI v2 and kubectl...
       - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
       - unzip awscliv2.zip
-      - sudo ./aws/install
+      - ./aws/install
       - curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.3/2023-07-12/bin/linux/amd64/kubectl
       - chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/
       - aws --version
