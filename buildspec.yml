@@ -9,17 +9,6 @@ env:
     IMAGE_TAG: latest
 
 phases:
-  install:
-    commands:
-      - echo Installing AWS CLI v2 and kubectl...
-      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-      - unzip awscliv2.zip
-      - ./aws/install
-      - curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.3/2023-07-12/bin/linux/amd64/kubectl
-      - chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/
-      - aws --version
-      - kubectl version --client
-
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
@@ -27,16 +16,25 @@ phases:
 
   build:
     commands:
-      - echo Building Docker image...
+      - echo Build started on `date`
+      - echo Building the Docker image...
       - docker build -t $IMAGE_REPO_NAME .
       - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
 
+      - echo Installing kubectl...
+      - curl -LO "https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.3/2023-07-12/bin/linux/amd64/kubectl"
+      - chmod +x kubectl
+      - mkdir -p $HOME/bin
+      - mv kubectl $HOME/bin/
+      - export PATH=$HOME/bin:$PATH
+
   post_build:
     commands:
-      - echo Pushing Docker image...
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Writing image definitions...
-      - printf '[{"name":"%s","imageUri":"%s"}]' "$IMAGE_REPO_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+
+      - echo Updating kubeconfig and applying Kubernetes manifests...
       - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-project-cluster
       - kubectl apply -f k8s/deployment.yaml
       - kubectl apply -f k8s/service.yaml
