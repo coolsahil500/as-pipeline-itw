@@ -1,4 +1,12 @@
 version: 0.2
+env:
+  variables:
+    AWS_DEFAULT_REGION: ap-south-1
+    AWS_ACCOUNT_ID: 339713011246
+    IMAGE_REPO_NAME: nodejs-app-repo
+    REPOSITORY_URI: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo
+    IMAGE_TAG: latest
+   
 
 phases:
   pre_build:
