@@ -40,8 +40,7 @@ phases:
       - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-project-cluster
 
       - echo Applying Kubernetes manifests...
-      - kubectl apply -f k8s/deployment.yaml 
-      - kubectl apply -f k8s/service.yaml 
+      - kubectl apply -f k8s
 
 artifacts:
   files:
