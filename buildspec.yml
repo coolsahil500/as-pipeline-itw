@@ -29,6 +29,7 @@ phases:
       - echo Writing image definitions file...
       - printf '[{"name":"%s","imageUri":"%s"}]' "$IMAGE_REPO_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
       - echo Build completed on `date`
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-project-cluster
       - kubectl apply -f k8s/deployment.yaml
       - kubectl apply -f k8s/service.yaml
 artifacts:
