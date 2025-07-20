@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: node-container
-        image: itw-project-v1:latest339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest
+        image: nodejs-app-repo:latest
         ports:
         - containerPort: 3000
