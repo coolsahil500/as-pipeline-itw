@@ -6,32 +6,44 @@ env:
     IMAGE_REPO_NAME: nodejs-app-repo
     REPOSITORY_URI: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo
     IMAGE_TAG: latest
-   
 
 phases:
+  install:
+    runtime-versions:
+      docker: 20
+    commands:
+      - echo Installing AWS CLI v2 and kubectl...
+      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      - unzip awscliv2.zip
+      - sudo ./aws/install
+      - curl -o kubectl https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.3/2023-07-12/bin/linux/amd64/kubectl
+      - chmod +x ./kubectl && sudo mv ./kubectl /usr/local/bin/
+      - aws --version
+      - kubectl version --client
+
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-  
-     
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
+
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
+      - echo Building Docker image...
       - docker build -t $IMAGE_REPO_NAME .
       - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
+      - echo Pushing Docker image...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Writing image definitions file...
+      - echo Creating imagedefinitions.json...
       - printf '[{"name":"%s","imageUri":"%s"}]' "$IMAGE_REPO_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
-      - echo Build completed on `date`
+      - echo Updating kubeconfig...
       - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-project-cluster
+      - echo Deploying to EKS...
       - kubectl apply -f k8s/deployment.yaml
       - kubectl apply -f k8s/service.yaml
+
 artifacts:
   files:
     - imagedefinitions.json
