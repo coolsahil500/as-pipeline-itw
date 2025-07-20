@@ -35,7 +35,7 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
 
       - echo Updating kubeconfig and applying Kubernetes manifests...
-      - cat k8s/deployment.yaml      #
+      - cat k8s/deployment.yaml      
       - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-project-cluster
       - kubectl apply -f k8s/deployment.yaml
       - kubectl apply -f k8s/service.yaml
