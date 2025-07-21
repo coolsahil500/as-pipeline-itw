@@ -37,7 +37,7 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
 
       - echo Updating kubeconfig...
-      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-test-cluster
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-test-project
 
       - echo Applying Kubernetes manifests...
       - kubectl apply -f k8s
