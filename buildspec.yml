@@ -41,7 +41,3 @@ phases:
 
       - echo Applying Kubernetes manifests...
       - kubectl apply -f k8s
-
-artifacts:
-  files:
-    - imagedefinitions.json
