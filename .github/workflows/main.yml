@@ -1,65 +1,45 @@
 name: Deploy Latest ECR Image to EKS
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *' # Optional: deploys every 10 mins
 
 jobs:
-  wait-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
           aws-region: ap-south-1
 
-      - name: Start CodePipeline
+      - name: Get latest image tag from ECR
+        id: get-tag
         run: |
-          PIPELINE_NAME="itw-codepipeline"
-          echo "🔄 Starting CodePipeline: $PIPELINE_NAME"
-          EXECUTION_ID=$(aws codepipeline start-pipeline-execution --name $PIPELINE_NAME --query 'pipelineExecutionId' --output text)
-          echo "➡️ Pipeline Execution ID: $EXECUTION_ID"
+          IMAGE_TAG=$(aws ecr describe-images \
+            --repository-name nodejs-app-repo \
+            --region ap-south-1 \
+            --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
+            --output text)
+          echo "Latest tag: $IMAGE_TAG"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-          # Poll for status
-          echo "⏳ Waiting for pipeline to complete..."
-          for i in {{1..30}}; do
-            STATUS=$(aws codepipeline get-pipeline-execution               --pipeline-name $PIPELINE_NAME               --pipeline-execution-id $EXECUTION_ID               --query 'pipelineExecution.status'               --output text)
-
-            echo "   → Status: $STATUS"
-
-            if [ "$STATUS" == "Succeeded" ]; then
-              echo "✅ Pipeline execution succeeded."
-              break
-            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Stopped" ]; then
-              echo "❌ Pipeline failed or was stopped."
-              exit 1
-            fi
-
-            sleep 10
-          done
-
-      - name: Update kubeconfig
+      - name: Update kubeconfig for EKS
         run: |
           aws eks update-kubeconfig --name itw-test-project --region ap-south-1
 
-      - name: Deploy latest image to EKS
+      - name: Deploy to Kubernetes
         run: |
-          IMAGE_URI="339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest"
-          DEPLOYMENT_NAME="node-app"
-          CONTAINER_NAME="nodejs-container"
-
-          echo "📦 Setting latest image in deployment..."
-          kubectl set image deployment/$DEPLOYMENT_NAME $CONTAINER_NAME=$IMAGE_URI
-          echo "🔍 Waiting for rollout..."
-          kubectl rollout status deployment/$DEPLOYMENT_NAME
-            if [ $? -ne 0 ]; then
-                echo "❌ Rollout failed."
-                exit 1
-            fi  
+          echo "Updating image tag in deployment manifest to: ${{ steps.get-tag.outputs.image_tag }}"
+          sed -i "s|image: .*$|image: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:${{ steps.get-tag.outputs.image_tag }}|" k8s/deployment.yaml
+          kubectl apply -f k8s
