@@ -9,6 +9,11 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: ap-south-1
+  CLUSTER_NAME: itw-test-project
+  PIPELINE_NAME: nodejs-codepipeline  # change if your pipeline has a different name
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,11 +27,44 @@ jobs:
       with:
         role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
         role-session-name: GitHubActionsSession
-        aws-region: ap-south-1
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Wait for CodePipeline to complete
+      run: |
+        echo "Waiting for CodePipeline: $PIPELINE_NAME to complete..."
+        
+        EXEC_ID=$(aws codepipeline list-pipeline-executions \
+          --pipeline-name $PIPELINE_NAME \
+          --max-items 1 \
+          --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
+          --output text)
+          
+        echo "Latest execution ID: $EXEC_ID"
+
+        while true; do
+          STATUS=$(aws codepipeline get-pipeline-execution \
+            --pipeline-name $PIPELINE_NAME \
+            --pipeline-execution-id $EXEC_ID \
+            --query 'pipelineExecution.status' \
+            --output text)
+
+          echo "Pipeline status: $STATUS"
+
+          if [[ "$STATUS" == "Succeeded" ]]; then
+            echo "✅ Pipeline succeeded."
+            break
+          elif [[ "$STATUS" == "Failed" || "$STATUS" == "Stopped" ]]; then
+            echo "❌ Pipeline failed or stopped."
+            exit 1
+          else
+            echo "⏳ Pipeline still running... checking again in 15s"
+            sleep 15
+          fi
+        done
 
     - name: Update kubeconfig for EKS cluster
       run: |
-        aws eks update-kubeconfig --name itw-test-project --region ap-south-1
+        aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
 
     - name: Deploy to EKS using kubectl
       run: |
