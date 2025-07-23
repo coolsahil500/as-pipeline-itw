@@ -5,8 +5,13 @@ on:
     branches:
       - main
 
+permissions:
+  id-token: write   # Required for OIDC
+  contents: read    # Required to clone repo
+
 jobs:
   deploy:
+    name: Deploy to EKS
     runs-on: ubuntu-latest
     env:
       AWS_REGION: ap-south-1
@@ -21,7 +26,7 @@ jobs:
     - name: 📦 Checkout repository
       uses: actions/checkout@v3
 
-    - name: 🔐 Configure AWS credentials
+    - name: 🔐 Configure AWS credentials (OIDC)
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
