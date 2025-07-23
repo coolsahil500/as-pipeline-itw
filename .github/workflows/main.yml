@@ -12,7 +12,7 @@ permissions:
 env:
   AWS_REGION: ap-south-1
   CLUSTER_NAME: itw-test-project
-  PIPELINE_NAME: nodejs-codepipeline  # change if your pipeline has a different name
+  PIPELINE_NAME: itw-codepipeline # change if your pipeline has a different name
 
 jobs:
   deploy:
