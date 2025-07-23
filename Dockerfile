@@ -1,5 +1,5 @@
 ### STAGE 1: Build ###
-FROM node:22-alpine AS build
+FROM 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:22-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
