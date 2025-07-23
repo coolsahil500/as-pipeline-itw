@@ -1,13 +1,9 @@
-name: Deploy to EKS
+name: Deploy to EKS after CodePipeline
 
 on:
   push:
-    branches: [ main ]  # adjust as needed
-  workflow_dispatch:
-
-permissions:
-  id-token: write
-  contents: read
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -22,25 +18,25 @@ jobs:
       IMAGE_URI: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest
 
     steps:
-    - name: Checkout repository
+    - name: 📦 Checkout repository
       uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
+    - name: 🔐 Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
         role-session-name: GitHubActionsSession
         aws-region: ap-south-1
 
-    - name: Wait for CodePipeline to complete
+    - name: 🕒 Wait for CodePipeline to complete
       run: |
         echo "🔄 Waiting for CodePipeline: $PIPELINE_NAME to complete..."
 
         EXEC_ID=$(aws codepipeline list-pipeline-executions \
           --pipeline-name "$PIPELINE_NAME" \
           --max-items 1 \
-          --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
-          --output text | tr -d '\n' | xargs)
+          --query 'pipelineExecutionSummaries[?status==`InProgress` || status==`Succeeded`][0].pipelineExecutionId' \
+          --output text)
 
         echo "➡️ Latest execution ID: $EXEC_ID"
 
@@ -64,33 +60,30 @@ jobs:
           elif [[ "$STATUS" == "Failed" || "$STATUS" == "Stopped" ]]; then
             echo "❌ Pipeline failed or was stopped."
             exit 1
-          elif [[ "$STATUS" == "None" || "$STATUS" == "" ]]; then
-            echo "⚠️ Status not yet available... retrying..."
           else
             echo "⏳ Pipeline still running... checking again in 15s"
+            sleep 15
           fi
-
-          sleep 15
         done
 
-    - name: Update kubeconfig for EKS
+    - name: 🧭 Update kubeconfig for EKS
       run: |
         aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
-    - name: Inject IMAGE_URI into deployment.yaml
+    - name: 🧪 Inject IMAGE_URI into deployment.yaml
       run: |
         cat k8s/deployment.yaml | envsubst > k8s/deployment-patched.yaml
 
-    - name: Deploy to EKS using kubectl
+    - name: 🚀 Deploy to EKS using kubectl
       run: |
         kubectl apply -f k8s/deployment-patched.yaml
         kubectl apply -f k8s/service.yaml
         kubectl apply -f k8s/ingress.yaml
 
-        echo "🔄 Waiting for deployment rollout..."
+        echo "📦 Verifying rollout..."
         kubectl rollout status deployment/$DEPLOYMENT_NAME
 
-        echo "📦 Resources overview:"
+        echo "📡 Getting service, ingress and pods status..."
         kubectl get svc node-service -o wide
         kubectl get ingress node-service -o wide
         kubectl get pods -l app=$DEPLOYMENT_NAME -o wide
