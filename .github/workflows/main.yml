@@ -37,8 +37,18 @@ jobs:
 
       - name: Update kubeconfig
         run: |
-          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+          aws eks update-kubeconfig \
+          --region $AWS_REGION \
+          --name $CLUSTER_NAME \
+          --role-arn arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
+
 
       - name: Deploy to EKS
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+          kubectl rollout status deployment/node-app
+          kubectl get svc node-service -o wide
+          kubectl get ingress node-service -o wide
+          kubectl get pods -l app=node-app -o wide
