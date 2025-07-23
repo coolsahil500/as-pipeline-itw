@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 ### STAGE 2: Serve ###
-FROM 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:22-alpine
+FROM 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest
 
 RUN apk update && apk add --no-cache nginx
 
