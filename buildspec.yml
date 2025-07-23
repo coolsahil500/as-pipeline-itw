@@ -14,19 +14,6 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
 
-      - echo Installing AWS CLI...
-      - curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-      - unzip -q awscliv2.zip
-      - sudo ./aws/install --update
-
-      - echo Installing kubectl...
-      - curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      - chmod +x kubectl
-      - sudo mv kubectl /usr/local/bin/
-
-      - echo Updating kubeconfig...
-      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name itw-test-project
-
   build:
     commands:
       - echo Build started on `date`
@@ -38,6 +25,4 @@ phases:
     commands:
       - echo Pushing the Docker image to ECR...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-
-      - echo Applying Kubernetes manifests...
-      - kubectl apply -f k8s
+      - echo Build completed on `date`

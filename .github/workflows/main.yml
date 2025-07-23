@@ -2,8 +2,7 @@ name: Deploy to EKS
 
 on:
   push:
-    branches:
-      - main  # or your deployment branch
+    branches: [ main ]
 
 permissions:
   id-token: write
@@ -11,30 +10,28 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to EKS
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials using OIDC
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
-          role-session-name: github-eks-deploy-session
           aws-region: ap-south-1
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: v1.28.0
-
-      - name: Update kubeconfig for EKS cluster
+      - name: Install kubectl
         run: |
-          aws eks update-kubeconfig --name itw-test-project --region ap-south-1
+          curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
 
-      - name: Deploy to EKS using kubectl
+      - name: Update kubeconfig
         run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
+          aws eks update-kubeconfig --region ap-south-1 --name itw-test-project
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s
