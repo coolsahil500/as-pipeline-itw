@@ -1,86 +1,88 @@
-name: Wait for CodePipeline & Deploy to EKS
+name: Deploy to EKS after CodePipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
 
-env:
-  AWS_REGION: ap-south-1
-  CLUSTER_NAME: itw-test-project
-  PIPELINE_NAME: itw-codepipeline
-  DEPLOYMENT_NAME: node-app
-  CONTAINER_NAME: nodejs-container
-  IMAGE_URI: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      PIPELINE_NAME: itw-codepipeline
+      CLUSTER_NAME: itw-test-project
+      AWS_REGION: ap-south-1
+      AWS_DEFAULT_REGION: ap-south-1
+      IMAGE_URI: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Configure AWS credentials (OIDC)
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
-        role-session-name: GitHubActionsSession
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
+          role-session-name: GitHubActionsSession
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Wait for CodePipeline to complete
-      run: |
-        echo "Waiting for CodePipeline: $PIPELINE_NAME to complete..."
+      - name: Wait for CodePipeline to complete
+        shell: bash
+        run: |
+          echo "🔄 Waiting for CodePipeline: $PIPELINE_NAME to complete..."
 
-        EXEC_ID=$(aws codepipeline list-pipeline-executions \
-          --pipeline-name $PIPELINE_NAME \
-          --max-items 1 \
-          --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
-          --output text)
-
-        echo "Latest execution ID: $EXEC_ID"
-
-        sleep 10  # Let the pipeline initialize before polling
-
-        while true; do
-          STATUS=$(aws codepipeline get-pipeline-execution \
-            --pipeline-name $PIPELINE_NAME \
-            --pipeline-execution-id $EXEC_ID \
-            --query 'pipelineExecution.status' \
+          EXEC_ID=$(aws codepipeline list-pipeline-executions \
+            --pipeline-name "$PIPELINE_NAME" \
+            --max-items 1 \
+            --query 'pipelineExecutionSummaries[0].pipelineExecutionId' \
             --output text)
 
-          echo "Pipeline status: $STATUS"
+          echo "➡️ Latest execution ID: $EXEC_ID"
 
-          if [[ "$STATUS" == "Succeeded" ]]; then
-            echo "✅ Pipeline succeeded."
-            break
-          elif [[ "$STATUS" == "Failed" || "$STATUS" == "Stopped" ]]; then
-            echo "❌ Pipeline failed or was stopped."
+          if [[ "$EXEC_ID" == "None" || "$EXEC_ID" == "" ]]; then
+            echo "❌ No pipeline execution found."
             exit 1
-          elif [[ "$STATUS" == "None" || "$STATUS" == "" ]]; then
-            echo "⚠️ Status not yet available... retrying..."
-          else
-            echo "⏳ Pipeline still running... checking again in 15s"
           fi
 
-          sleep 15
-        done
+          while true; do
+            STATUS=$(aws codepipeline get-pipeline-execution \
+              --pipeline-name "$PIPELINE_NAME" \
+              --pipeline-execution-id "$EXEC_ID" \
+              --query 'pipelineExecution.status' \
+              --output text)
 
-    - name: Update kubeconfig for EKS cluster
-      run: |
-        aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+            echo "⏱️ Pipeline status: $STATUS"
 
-    - name: Deploy to EKS using kubectl
-      run: |
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
-        kubectl apply -f k8s/ingress.yaml
+            if [[ "$STATUS" == "Succeeded" ]]; then
+              echo "✅ Pipeline succeeded."
+              break
+            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Stopped" ]]; then
+              echo "❌ Pipeline failed or was stopped."
+              exit 1
+            elif [[ "$STATUS" == "None" || "$STATUS" == "" ]]; then
+              echo "⚠️ Status not yet available... retrying..."
+            else
+              echo "⏳ Pipeline still running... checking again in 15s"
+            fi
 
-        kubectl rollout status deployment/$DEPLOYMENT_NAME
-        kubectl get svc -o wide
-        kubectl get ingress -o wide
-        kubectl get pods -l app=$DEPLOYMENT_NAME -o wide
+            sleep 15
+          done
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/ingress.yaml
+
+          kubectl rollout status deployment/node-app
+          kubectl get pods -l app=node-app -o wide
+          kubectl get svc node-service
+          kubectl get ingress node-service
