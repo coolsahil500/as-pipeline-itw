@@ -3,7 +3,7 @@ name: Deploy Latest ECR Image to EKS
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/10 * * * *' # Optional: deploys every 10 mins
+    - cron: '*/05 * * * *' # Optional: deploys every 5 mins
 
 jobs:
   deploy:
