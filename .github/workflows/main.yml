@@ -1,40 +1,40 @@
-
 name: Deploy to EKS
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - main
+      - main  # or your deployment branch
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
-    name: Deploy to EKS via kubectl
+    name: Deploy to EKS
     runs-on: ubuntu-latest
 
-    permissions:
-      id-token: write
-      contents: read
-
     steps:
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role
+          role-session-name: github-eks-deploy-session
           aws-region: ap-south-1
 
-      - name: Install kubectl
-        run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: v1.28.0
 
-      - name: Update kubeconfig for EKS
-        run: aws eks update-kubeconfig --region ap-south-1 --name itw-test-project
+      - name: Update kubeconfig for EKS cluster
+        run: |
+          aws eks update-kubeconfig --name itw-test-project --region ap-south-1
 
       - name: Deploy to EKS using kubectl
         run: |
-          kubectl apply -f k8s
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
