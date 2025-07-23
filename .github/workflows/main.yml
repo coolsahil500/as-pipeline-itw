@@ -1,75 +1,29 @@
-name: Deploy to EKS after CodePipeline
+name: Deploy to EKS on Tag Push
 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  id-token: write   # Required for OIDC
-  contents: read    # Required to clone repo
+    tags:
+      - 'v*'
 
 jobs:
   deploy:
-    name: Deploy to EKS
     runs-on: ubuntu-latest
     env:
       AWS_REGION: ap-south-1
-      AWS_DEFAULT_REGION: ap-south-1
       CLUSTER_NAME: itw-test-project
-      PIPELINE_NAME: itw-codepipeline
       DEPLOYMENT_NAME: node-app
-      CONTAINER_NAME: nodejs-container
       IMAGE_URI: 339713011246.dkr.ecr.ap-south-1.amazonaws.com/nodejs-app-repo:latest
 
     steps:
     - name: 📦 Checkout repository
       uses: actions/checkout@v3
 
-    - name: 🔐 Configure AWS credentials (OIDC)
+    - name: 🔐 Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
         role-to-assume: arn:aws:iam::339713011246:role/github-oidc-deployer-role-v2
         role-session-name: GitHubActionsSession
         aws-region: ap-south-1
-
-    - name: 🕒 Wait for CodePipeline to complete
-      run: |
-        echo "🔄 Waiting for CodePipeline: $PIPELINE_NAME to complete..."
-
-        EXEC_ID=$(aws codepipeline list-pipeline-executions \
-          --pipeline-name "$PIPELINE_NAME" \
-          --max-items 1 \
-          --query 'pipelineExecutionSummaries[?status==`InProgress` || status==`Succeeded`][0].pipelineExecutionId' \
-          --output text)
-
-        echo "➡️ Latest execution ID: $EXEC_ID"
-
-        if [[ -z "$EXEC_ID" || "$EXEC_ID" == "None" ]]; then
-          echo "❌ No valid pipeline execution found."
-          exit 1
-        fi
-
-        while true; do
-          STATUS=$(aws codepipeline get-pipeline-execution \
-            --pipeline-name "$PIPELINE_NAME" \
-            --pipeline-execution-id "$EXEC_ID" \
-            --query 'pipelineExecution.status' \
-            --output text)
-
-          echo "⏱️ Pipeline status: $STATUS"
-
-          if [[ "$STATUS" == "Succeeded" ]]; then
-            echo "✅ Pipeline succeeded."
-            break
-          elif [[ "$STATUS" == "Failed" || "$STATUS" == "Stopped" ]]; then
-            echo "❌ Pipeline failed or was stopped."
-            exit 1
-          else
-            echo "⏳ Pipeline still running... checking again in 15s"
-            sleep 15
-          fi
-        done
 
     - name: 🧭 Update kubeconfig for EKS
       run: |

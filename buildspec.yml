@@ -26,3 +26,8 @@ phases:
       - echo Pushing the Docker image to ECR...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo Build completed on `date`
+      - echo "Creating a new tag for the deployment..."
+      - git config --global user.email "cicd@pipeline.com"
+      - git config --global user.name "pipeline-bot"
+      - git tag v1.0.$(date +%s)
+      - git push origin --tags
