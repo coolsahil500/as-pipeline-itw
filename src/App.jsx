@@ -9,7 +9,7 @@ function App() {
   return (
     <>
       <div>
-        <h1>This code is deployed using aws terraform at 4.26AM</h1>
+        <h1>This code is deployed using aws terraform at 7:35 pm  </h1>
         <a href="https://vite.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />
         </a>
