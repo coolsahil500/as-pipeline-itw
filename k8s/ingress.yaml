@@ -3,6 +3,7 @@ kind: Ingress
 metadata:
   name: node-service
   annotations:
+    kubernetes.io/ingress.class: alb  # ✅ Required!
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: service-group
